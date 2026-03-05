@@ -1,0 +1,226 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: X filtering
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/gemini:0.7.10@002971bf0936d741f1645427be35520abb0c9dde89cc110764436c4e6da4bb61
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: end
+      id: 1771463472047-source-1772468881262-target
+      selected: false
+      source: '1771463472047'
+      sourceHandle: source
+      target: '1772468881262'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: 1771463463645-source-1771463472047-target
+      source: '1771463463645'
+      sourceHandle: source
+      target: '1771463472047'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: Twitter Text
+        type: start
+        variables:
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - image
+          allowed_file_upload_methods:
+          - remote_url
+          default: ''
+          hint: ''
+          label: tweets
+          max_length: null
+          options: []
+          placeholder: ''
+          required: true
+          type: paragraph
+          variable: tweets
+      height: 108
+      id: '1771463463645'
+      position:
+        x: 0
+        y: 4
+      positionAbsolute:
+        x: 0
+        y: 4
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: filter irrelevant content
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemini-2.5-flash
+          provider: langgenius/gemini/google
+        prompt_template:
+        - id: 72064d1e-394f-41af-9aba-589cfa8b5cee
+          role: system
+          text: "```xml\n<instruction>\nYou are an expert multi-asset trader who specializes\
+            \ in sentiment analysis and trend forecasting based on Key Opinion Leader\
+            \ (KOL) social media activity. \n\nYour task is to analyze the provided\
+            \ list of tweets and determine if they contain specific, actionable information\
+            \ regarding tradeable assets (e.g., stocks, cryptocurrencies, commodities,\
+            \ forex). The input string contains multiple tweets separated by \"<DAY_TWEET_SEP>\"\
+            .\n\nPlease follow these steps for EACH tweet in the list:\n1. Review\
+            \ the tweet content.\n2. Evaluate if the content is \"Noise.\" Noise includes:\n\
+            \    - Advertisements or self-promotion.\n    - General economic views\
+            \ (e.g., talk about inflation, CPI, or the Fed) without a specific asset\
+            \ impact.\n    - Common news that does not offer a specific perspective\
+            \ on an asset's trend.\n    - Vague market sentiment.\n3. Identify \"\
+            Signal.\" A signal must:\n    - Explicitly mention or clearly refer to\
+            \ a tradeable asset (e.g., $NVDA, $BTC, $GOLD, $EURUSD).\n    - Provide\
+            \ a forecast, technical analysis, fundamental insight, or catalyst relevant\
+            \ to that specific asset's price action.\n4. If the tweet is \"Noise,\"\
+            \ output: \"False\".\n5. If the tweet is a \"Signal,\" output: \"True\"\
+            .\n\nOutput the result for each tweet sequentially, separated by a newline.\n\
+            </instruction>\n\n<input>\nTweets: {{tweets_text}}\n</input>\n\n<example>\n\
+            Input: \nCheck out my new trading course! 50% off. <DAY_TWEET_SEP> $BTC\
+            \ is showing a classic cup and handle pattern. Expecting a breakout above\
+            \ 70k.\nOutput:\nFalse\nTrue\n</example>\n\n<output>\n[Your classification\
+            \ for each tweet goes here]\n</output>\n```"
+        - id: 9e2b7291-fd0f-4794-a43b-6259405b1759
+          role: user
+          text: 'Tweets: {{#1771463463645.tweets#}}'
+        reasoning_format: tagged
+        selected: true
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              valid_tweet:
+                description: Whether the twitter contains ticker-specific directional
+                  signals?
+                items:
+                  type: string
+                type: array
+            required:
+            - valid_tweet
+            type: object
+        structured_output_enabled: true
+        title: Filter
+        type: llm
+        vision:
+          enabled: false
+      height: 115
+      id: '1771463472047'
+      position:
+        x: 386.8571428571429
+        y: 25
+      positionAbsolute:
+        x: 386.8571428571429
+        y: 25
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: Valid_text
+        outputs:
+        - value_selector:
+          - '1771463472047'
+          - structured_output
+          - valid_tweet
+          value_type: object
+          variable: valid_tweet
+        selected: false
+        title: Validation
+        type: end
+      height: 116
+      id: '1772468881262'
+      position:
+        x: 795.7142857142866
+        y: 25
+      positionAbsolute:
+        x: 795.7142857142866
+        y: 25
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -94.00000000000068
+      y: 278
+      zoom: 0.7
+  rag_pipeline_variables: []

@@ -1,0 +1,275 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: X Summarizer
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/gemini:0.7.10@002971bf0936d741f1645427be35520abb0c9dde89cc110764436c4e6da4bb61
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: end
+      id: 1771464089876-source-1771469831777-target
+      selected: false
+      source: '1771464089876'
+      sourceHandle: source
+      target: '1771469831777'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: 1771463463645-source-1771464089876-target
+      source: '1771463463645'
+      sourceHandle: source
+      target: '1771464089876'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: Twitter Text
+        type: start
+        variables:
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - image
+          allowed_file_upload_methods:
+          - remote_url
+          default: ''
+          hint: ''
+          label: twitter_text
+          max_length: null
+          options: []
+          placeholder: ''
+          required: true
+          type: paragraph
+          variable: twitter_text
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - image
+          allowed_file_upload_methods:
+          - remote_url
+          default: ''
+          hint: ''
+          label: twitter_media
+          max_length: 10
+          options: []
+          placeholder: ''
+          required: false
+          type: file-list
+          variable: twitter_media
+      height: 134
+      id: '1771463463645'
+      position:
+        x: 0
+        y: 4
+      positionAbsolute:
+        x: 0
+        y: 4
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: multimodal comprehensive model and summarize "ticker:statement:reasoning"
+        model:
+          completion_params:
+            temperature: 0.7
+            url_context: false
+          mode: chat
+          name: gemini-3-flash-preview
+          provider: langgenius/gemini/google
+        prompt_template:
+        - id: a2eb565b-ef09-4f03-9356-e154f875b1fa
+          role: system
+          text: "```xml\n<instruction>\nYou are a financial expert specializing in\
+            \ sentiment analysis across multiple mediums, including text and visual\
+            \ data. Your task is to analyze the provided Twitter content (text and/or\
+            \ uploaded media files) and extract specific financial sentiments or predictions.\n\
+            \nFollow these steps:\n1. Identify all financial tickers or company symbols\
+            \ (e.g., AAPL, BTC, TSLA) mentioned in the text or depicted in the uploaded\
+            \ media content.\n2. For each identified symbol, extract a \"statement\"\
+            \ by combining the most related sentences from the original text that\
+            \ capture the user's sentiment, price target, or prediction.\n3. Provide\
+            \ a clear \"reasoning\" based on the content (e.g., technical analysis\
+            \ patterns in a graph, specific news cited, or textual claims).\n4. Score\
+            \ the extraction with two metrics:\n   - \"confidence\": A score from\
+            \ 0 to 1 indicating the certainty that the tweet refers to that specific\
+            \ company.\n   - \"sentiment\": A score from -1 to 1 indicating the negative\
+            \ to positive tone toward the company.\n5. Format the final output as\
+            \ a JSON array of objects. \n6. Ensure the output contains only the JSON\
+            \ array and absolutely no XML tags or conversational filler.\n\nThe output\
+            \ must follow this structure:\n[\n  {\n    \"symbol\": \"TICKER\",\n \
+            \   \"statement\": \"Combined related sentences from the text\",\n   \
+            \ \"reasoning\": \"The evidence found in the text or media\",\n    \"\
+            confidence\": 0.9,\n    \"sentiment\": 0.5\n  }\n]\n</instruction>\n\n\
+            <example>\nInput Text: \"Looking at the $TSLA chart, we just hit a double\
+            \ bottom. Expecting a bounce to $200 soon. The overall market looks shaky,\
+            \ but Tesla is strong.\"\nInput Media: [Uploaded Image of TSLA Chart]\n\
+            \nOutput:\n[\n  {\n    \"symbol\": \"TSLA\",\n    \"statement\": \"Looking\
+            \ at the $TSLA chart, we just hit a double bottom. Expecting a bounce\
+            \ to $200 soon.\",\n    \"reasoning\": \"The uploaded chart shows a double\
+            \ bottom pattern hitting a support level\",\n    \"confidence\": 1.0,\n\
+            \    \"sentiment\": 0.8\n  }\n]\n</example>\n\n<input>\nTwitter Text:\
+            \ {{twitter_text}}\nTwitter Media: {{twitter_media}}\n</input>\n\n<output>\n\
+            Generate the sentiment analysis JSON here. Do not include any XML tags\
+            \ in your response.\n</output>\n```"
+        - id: 896f0193-9265-4aca-862a-bab2b88ed7a5
+          role: user
+          text: 'Twitter Text: {{#1771463463645.twitter_text#}}'
+        selected: true
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              items:
+                description: symbol-statement-reasoning
+                items:
+                  additionalProperties: false
+                  properties:
+                    confidence:
+                      description: certainty that the tweet refers to that specific
+                        company.
+                      type: number
+                    reasoning:
+                      description: reasoning of the statement
+                      type: string
+                    sentiment:
+                      description: the negative to positive tone toward the company.
+                      type: number
+                    statement:
+                      description: statement of the ticker
+                      type: string
+                    symbol:
+                      description: ticker
+                      type: string
+                  required:
+                  - symbol
+                  - statement
+                  - reasoning
+                  - confidence
+                  - sentiment
+                  type: object
+                type: array
+            required: []
+            type: object
+        structured_output_enabled: true
+        title: Summarizer
+        type: llm
+        vision:
+          configs:
+            detail: low
+            variable_selector:
+            - '1771463463645'
+            - twitter_media
+          enabled: true
+      height: 147
+      id: '1771464089876'
+      position:
+        x: 340.57142857142867
+        y: 25
+      positionAbsolute:
+        x: 340.57142857142867
+        y: 25
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: output the summary of the twitter
+        outputs:
+        - value_selector:
+          - '1771464089876'
+          - structured_output
+          value_type: object
+          variable: summary
+        selected: false
+        title: Summary Output
+        type: end
+      height: 116
+      id: '1771469831777'
+      position:
+        x: 669.7142857142853
+        y: 25
+      positionAbsolute:
+        x: 669.7142857142853
+        y: 25
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 200.5323589306064
+      y: 206.5362510492669
+      zoom: 0.5823018999029312
+  rag_pipeline_variables: []
