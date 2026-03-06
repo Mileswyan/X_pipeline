@@ -140,24 +140,25 @@ workflow:
             \ (KOL) social media activity. \n\nYour task is to analyze the provided\
             \ list of tweets and determine if they contain specific, actionable information\
             \ regarding tradeable assets (e.g., stocks, cryptocurrencies, commodities,\
-            \ forex). The input string contains multiple tweets separated by \"<DAY_TWEET_SEP>\"\
-            .\n\nPlease follow these steps for EACH tweet in the list:\n1. Review\
-            \ the tweet content.\n2. Evaluate if the content is \"Noise.\" Noise includes:\n\
-            \    - Advertisements or self-promotion.\n    - General economic views\
-            \ (e.g., talk about inflation, CPI, or the Fed) without a specific asset\
-            \ impact.\n    - Common news that does not offer a specific perspective\
-            \ on an asset's trend.\n    - Vague market sentiment.\n3. Identify \"\
-            Signal.\" A signal must:\n    - Explicitly mention or clearly refer to\
-            \ a tradeable asset (e.g., $NVDA, $BTC, $GOLD, $EURUSD).\n    - Provide\
-            \ a forecast, technical analysis, fundamental insight, or catalyst relevant\
-            \ to that specific asset's price action.\n4. If the tweet is \"Noise,\"\
-            \ output: \"False\".\n5. If the tweet is a \"Signal,\" output: \"True\"\
-            .\n\nOutput the result for each tweet sequentially, separated by a newline.\n\
-            </instruction>\n\n<input>\nTweets: {{tweets_text}}\n</input>\n\n<example>\n\
-            Input: \nCheck out my new trading course! 50% off. <DAY_TWEET_SEP> $BTC\
-            \ is showing a classic cup and handle pattern. Expecting a breakout above\
-            \ 70k.\nOutput:\nFalse\nTrue\n</example>\n\n<output>\n[Your classification\
-            \ for each tweet goes here]\n</output>\n```"
+            \ forex). The input string contains multiple tweets, each wrapped in \"\
+            <DAY_TWEET_SEP>\" and \"</DAY_TWEET_SEP>\" tags.\n\nPlease follow these\
+            \ steps for EACH tweet in the list:\n1. Review the tweet content.\n2.\
+            \ Evaluate if the content is \"Noise.\" Noise includes:\n    - Advertisements\
+            \ or self-promotion.\n    - General economic views (e.g., talk about inflation,\
+            \ CPI, or the Fed) without a specific asset impact.\n    - Common news\
+            \ that does not offer a specific perspective on an asset's trend.\n  \
+            \  - Vague market sentiment.\n3. Identify \"Signal.\" A signal must:\n\
+            \    - Explicitly mention or clearly refer to a tradeable asset (e.g.,\
+            \ $NVDA, $BTC, $GOLD, $EURUSD).\n    - Provide a forecast, technical analysis,\
+            \ fundamental insight, or catalyst relevant to that specific asset's price\
+            \ action.\n4. If the tweet is \"Noise,\" output: \"False\".\n5. If the\
+            \ tweet is a \"Signal,\" output: \"True\".\n\nOutput the result for each\
+            \ tweet sequentially, separated by a newline.\n</instruction>\n\n<input>\n\
+            Tweets: {{tweets_text}}\n</input>\n\n<example>\nInput: \n<DAY_TWEET_SEP>\
+            \ Check out my new trading course! 50% off. </DAY_TWEET_SEP> <DAY_TWEET_SEP>\
+            \ $BTC is showing a classic cup and handle pattern. Expecting a breakout\
+            \ above 70k. </DAY_TWEET_SEP>\nOutput:\nFalse\nTrue\n</example>\n\n<output>\n\
+            [Your classification for each tweet goes here]\n</output>\n```"
         - id: 9e2b7291-fd0f-4794-a43b-6259405b1759
           role: user
           text: 'Tweets: {{#1771463463645.tweets#}}'
@@ -220,7 +221,7 @@ workflow:
       type: custom
       width: 242
     viewport:
-      x: -94.00000000000068
-      y: 278
-      zoom: 0.7
+      x: 137.4026007290056
+      y: 150.8311015581814
+      zoom: 0.5060763030910116
   rag_pipeline_variables: []

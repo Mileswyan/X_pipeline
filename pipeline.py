@@ -55,8 +55,9 @@ def dify_request(API_KEY, inputs, user="test_user"):
 
 def filtering(tweets):
     print("=========== Filtering ===============")
-    inputs = {"tweets": "<DAY_TWEET_SEP>".join([t["text"] for t in tweets])}
-    
+    inputs = {
+        "tweets": "".join([f"""<DAY_TWEET_SEP> {t['text']} </DAY_TWEET_SEP>""" for t in tweets])
+    }    
     # --- 针对 Filtering 逻辑不匹配的重试循环 ---
     for attempt in range(1, MAX_RETRIES + 1):
         print(f"Filtering Logic Check (Attempt {attempt}/{MAX_RETRIES})...")
