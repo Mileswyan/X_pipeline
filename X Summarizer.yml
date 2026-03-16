@@ -269,7 +269,7 @@ workflow:
       type: custom
       width: 242
     viewport:
-      x: 200.5323589306064
+      x: 200.53235893060636
       y: 206.5362510492669
       zoom: 0.5823018999029312
   rag_pipeline_variables: []
