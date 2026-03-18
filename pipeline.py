@@ -6,10 +6,10 @@ import sys
 import argparse
 
 URL = "http://localhost/v1/workflows/run"
-API_filter = "app-WT2G8qiOoaAWoPGJpu7Ja9OU"
-API_summarizer = "app-PyJG68gbM8ZNFYSLktsBEgnu"
-MAX_RETRIES = 3
-RETRY_DELAY = 2
+API_filter = "app-nOSyxQnoSPMyH6zxO3Gdpu4g"
+API_summarizer = "app-dFS5lmMqVfosD4Wp5kAYc0vv"
+MAX_RETRIES = 6
+RETRY_DELAY = 120
 
 def dify_request(API_KEY, inputs, user="test_user"):
     headers = {
@@ -55,38 +55,75 @@ def dify_request(API_KEY, inputs, user="test_user"):
 
 def filtering(tweets):
     print("=========== Filtering ===============")
-    inputs = {
-        "tweets": "".join([f"""<DAY_TWEET_SEP> {t['text']} </DAY_TWEET_SEP>""" for t in tweets])
-    }    
-    # --- 针对 Filtering 逻辑不匹配的重试循环 ---
-    for attempt in range(1, MAX_RETRIES + 1):
-        print(f"Filtering Logic Check (Attempt {attempt}/{MAX_RETRIES})...")
+    
+    # 定义内部递归处理函数
+    def process_batch(batch, attempt=1):
+        # 边界条件处理
+        if not batch:
+            return []
+            
+        inputs = {"tweets": "".join([f"""<DAY_TWEET_SEP> {t['text']} </DAY_TWEET_SEP>""" for t in batch])}
         
-        # 调用基础请求函数（内部已有 3 次 HTTP/Business 重试）
+        print(f"Filtering Logic Check (Attempt {attempt}, Batch Size: {len(batch)})...")
+        
+        # 调用基础请求函数
         result = dify_request(API_KEY=API_filter, inputs=inputs)
         valid_tweets = result.get('data', {}).get('outputs', {}).get('valid_tweet', [])
 
         # 核心校验：长度匹配
-        if len(tweets) == len(valid_tweets):
-            print(f"Success: Received {len(valid_tweets)} validation flags.")
-            print("=========== END Filtering ===============")
-            return {"status": True, "data": valid_tweets}
+        if len(batch) == len(valid_tweets):
+            print(f"Success: Received {len(valid_tweets)} validation flags for this batch.")
+            return valid_tweets
         else:
-            print(f"Logic Mismatch: Input {len(tweets)} != Output {len(valid_tweets)}")
+            print(f"Logic Mismatch: Input {len(batch)} != Output {len(valid_tweets)}")
             
-            if attempt < MAX_RETRIES:
-                print(f"Retrying Filtering logic in {RETRY_DELAY}s...")
-                time.sleep(RETRY_DELAY)
+            # --- 核心改动：如果维度不一致，且列表长度 > 1，则对半切分 ---
+            if len(batch) > 1:
+                print(f"Splitting batch of {len(batch)} into two halves and retrying...")
+                mid = len(batch) // 2
+                left_batch = batch[:mid]
+                right_batch = batch[mid:]
+                
+                # 短暂延迟避免触发并发限制
+                time.sleep(RETRY_DELAY) 
+                
+                # 分开两次进行筛选（针对新批次重置 attempt 为 1），再将结果合并
+                left_result = process_batch(left_batch, 1)
+                right_result = process_batch(right_batch, 1)
+                
+                return left_result + right_result
+                
+            # --- 如果列表只有 1 个元素仍出错（无法再切分），则执行重试或退出 ---
             else:
-                print("!!! Critical: Filtering length mismatch after max retries. Exiting. !!!")
-                sys.exit(1)
+                if attempt < MAX_RETRIES:
+                    print(f"Retrying single item in {RETRY_DELAY}s...")
+                    time.sleep(RETRY_DELAY)
+                    return process_batch(batch, attempt + 1)
+                else:
+                    print("!!! Critical: Filtering length mismatch after max retries on single item. Exiting. !!!")
+                    sys.exit(1)
+
+    # 触发首次全量处理
+    final_valid_tweets = process_batch(tweets)
+    
+    # 确保合并后的总长度与初始输入完全一致
+    if len(final_valid_tweets) == len(tweets):
+        print(f"Total Success: Processed and merged all {len(tweets)} items.")
+        print("=========== END Filtering ===============")
+        return {"status": True, "data": final_valid_tweets}
+    else:
+        # 理论上递归逻辑会保证要么等长返回，要么 sys.exit(1)，这里作为最终安全兜底
+        print(f"!!! Critical: Final merge mismatch. Expected {len(tweets)}, got {len(final_valid_tweets)}. Exiting. !!!")
+        sys.exit(1)
 
 def concatenating(tweets, validation):
     chunks = []
     current_text, current_media = [], []
 
     for tweet, is_valid in zip(tweets, validation):
-        if not is_valid: continue
+        is_valid_str = str(is_valid).strip().lower()
+        if is_valid_str in ['false', '0', 'no', 'none', ''] or not is_valid:
+            continue
         
         media_items = tweet.get("media", [])
         formatted_media = [
