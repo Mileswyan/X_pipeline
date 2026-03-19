@@ -226,28 +226,27 @@ def generating_summarizer_requests(KOL, raw_path, validation_path, output_path, 
                 f_out.write(json.dumps(result, ensure_ascii=False) + "\n")
                 f_out.flush()
 
-def generate_retry_requests(response_path, original_req_path, retry_req_path):
+def get_failed_ids(response_path):
     failed_ids = set()
-    
-    if not os.path.exists(response_path):
-        return False
-        
-    with open(response_path, 'r', encoding='utf-8') as f_resp:
-        for line in f_resp:
-            if not line.strip(): continue
-            try:
-                data = json.loads(line)
-                if "error" in data:
-                    failed_ids.add(data.get("id"))
-            except json.JSONDecodeError:
-                continue
-                
+    if os.path.exists(response_path):
+        with open(response_path, 'r', encoding='utf-8') as f_resp:
+            for line in f_resp:
+                if not line.strip(): continue
+                try:
+                    data = json.loads(line)
+                    if "error" in data:
+                        failed_ids.add(data.get("id"))
+                except json.JSONDecodeError:
+                    continue
+    return failed_ids
+
+def generate_retry_requests(response_path, original_req_path, retry_req_path):
+    failed_ids = get_failed_ids(response_path)
     if not failed_ids:
         return False
         
     print(f"⚠️ 提取到 {len(failed_ids)} 个失败请求，正在生成重试批次文件...")
     
-    # 注意: 这里 'w' 模式会自动清空/覆盖旧的 retry_request 文件
     with open(original_req_path, 'r', encoding='utf-8') as f_orig, \
          open(retry_req_path, 'w', encoding='utf-8') as f_retry:
         for line in f_orig:
@@ -260,6 +259,102 @@ def generate_retry_requests(response_path, original_req_path, retry_req_path):
                 continue
                 
     return True
+
+def retry_single_requests(client: genai.Client, failed_ids: set, original_req_path: str, summary_path: str):
+    print(f"\n🔄 启动逐条重试模式，共 {len(failed_ids)} 条...")
+    
+    valid_lines = []
+    if os.path.exists(summary_path):
+        with open(summary_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip(): continue
+                try:
+                    data = json.loads(line)
+                    if "error" not in data:
+                        valid_lines.append(line.strip())
+                except json.JSONDecodeError:
+                    pass
+
+    requests_to_retry = {}
+    with open(original_req_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            if not line.strip(): continue
+            try:
+                req_data = json.loads(line)
+                req_id = req_data.get("id")
+                if req_id in failed_ids:
+                    requests_to_retry[req_id] = req_data.get("request")
+            except json.JSONDecodeError:
+                continue
+
+    for i, (req_id, req_body) in enumerate(requests_to_retry.items(), 1):
+        print(f"  [{i}/{len(requests_to_retry)}] 正在重试: {req_id} ...")
+        try:
+            system_text = req_body["systemInstruction"]["parts"][0]["text"]
+            user_parts_raw = req_body["contents"][0]["parts"]
+            contents = []
+            for part in user_parts_raw:
+                if "text" in part:
+                    contents.append(part["text"])
+                elif "fileData" in part:
+                    file_uri = part["fileData"]["fileUri"]
+                    mime_type = part["fileData"]["mimeType"]
+                    contents.append(types.Part.from_uri(file_uri=file_uri, mime_type=mime_type))
+            
+            # 1. 提取完整的原始配置字典
+            raw_config = req_body.get("generationConfig", {})
+            
+            # 2. 兼容提取（Batch 请求体内通常是驼峰命名 responseSchema）
+            temp = raw_config.get("temperature")
+            resp_mime = raw_config.get("responseMimeType", raw_config.get("response_mime_type", "application/json"))
+            resp_schema = raw_config.get("responseSchema", raw_config.get("response_schema"))
+
+            # 3. 正确组装给 SDK 的 GenerateContentConfig
+            config = types.GenerateContentConfig(
+                system_instruction=system_text,
+                temperature=temp,
+                response_mime_type=resp_mime,
+                response_schema=resp_schema
+            )
+            
+            response = client.models.generate_content(
+                model="gemini-3-flash-preview", 
+                contents=contents,
+                config=config
+            )
+            
+            success_record = {
+                "id": req_id,
+                "response": {
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [
+                                    {"text": response.text}
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+            valid_lines.append(json.dumps(success_record, ensure_ascii=False))
+            print(f"      ✅ 成功获取结果")
+            
+        except Exception as e:
+            print(f"      ❌ 请求失败: {str(e)}")
+            error_record = {
+                "id": req_id,
+                "error": str(e)
+            }
+            valid_lines.append(json.dumps(error_record, ensure_ascii=False))
+            
+        time.sleep(20)
+
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        for line in valid_lines:
+            f.write(line + "\n")
+            
+    print("\n🎉 单条重试流程完成！记录已更新。")
 
 def get_job_to_monitor(client, name_prefix, job_type, download_flag):
     matched_jobs = []
@@ -306,24 +401,9 @@ def get_job_to_monitor(client, name_prefix, job_type, download_flag):
     print(f"📌 系统 ID: {selected_job['name']}")
     return selected_job['name']
 
-def count_errors(filepath):
-    count = 0
-    if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            for line in f:
-                if not line.strip(): continue
-                try:
-                    data = json.loads(line)
-                    if "error" in data:
-                        count += 1
-                except json.JSONDecodeError:
-                    pass
-    return count
-
 def merge_retry_and_clean(summary_path, retry_path):
     valid_lines = []
     
-    # 1. 读取 summary_response，抛弃里面所有的 error 记录
     if os.path.exists(summary_path):
         with open(summary_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -335,19 +415,16 @@ def merge_retry_and_clean(summary_path, retry_path):
                 except json.JSONDecodeError:
                     pass
                     
-    # 2. 读取完整的 retry_response (无论成败) 拼接到 valid_lines
     if os.path.exists(retry_path):
         with open(retry_path, 'r', encoding='utf-8') as f:
             for line in f:
                 if not line.strip(): continue
                 valid_lines.append(line)
                 
-    # 3. 覆盖写入 summary_response
     with open(summary_path, 'w', encoding='utf-8') as f:
         for line in valid_lines:
             f.write(line)
             
-    # 4. 清空 retry_response 文件
     if os.path.exists(retry_path):
         open(retry_path, 'w', encoding='utf-8').close()
 
@@ -359,7 +436,7 @@ def run_workflow(KOL, start, end, mode, download):
     filtering_requests_path = os.path.join("requests", KOL, "filter_request.jsonl")
     filtering_response_path = os.path.join("requests", KOL, "filtering_response.jsonl" )
 
-    if mode == 0:
+    if mode < 1:
         generate_filtering_requests(KOL, raw_path, filtering_requests_path, start, end)
         submitTasks(client, "models/gemini-2.5-flash", display_name + "-filtering",  filtering_requests_path, filtering_response_path)
     
@@ -387,13 +464,12 @@ def run_workflow(KOL, start, end, mode, download):
         else:
             return
             
-    elif mode == 3:
+    if mode <= 3:
         retry_requests_path = os.path.join("requests", KOL, "summarizing_retry_request.jsonl")
         retry_response_path = os.path.join("requests", KOL, "summarizing_retry_response.jsonl")
         
         name_prefix = f"{KOL}-{start}-{end}"
         
-        # 1. 先检查是否已经有未处理完的 retry 任务
         existing_job_name = get_job_to_monitor(client, name_prefix, "retry", download)
         if existing_job_name:
             print(f"🔍 检测到历史/正在运行的 retry 任务，正在接管监控...")
@@ -403,33 +479,45 @@ def run_workflow(KOL, start, end, mode, download):
             merge_retry_and_clean(summarizing_response_path, retry_response_path)
             time.sleep(2)
         else:
-            print("📭 当前无活跃的 retry 任务，准备检查错误数量...")
+            print("📭 当前无活跃的 retry 批量任务，准备检查错误数量...")
 
-        # 2. 开始检查是否需要发起新一轮重试
         while True:
-            current_errors = count_errors(summarizing_response_path)
+            failed_ids = get_failed_ids(summarizing_response_path)
+            current_errors = len(failed_ids)
             print(f"📊 当前 [summary_response] 中的错误总数: {current_errors}")
             
-            if current_errors <= 50:
-                print("✅ 错误数少于或等于 50 条，重试流程结束！")
+            if current_errors == 0:
+                print("✅ 没有错误记录，无需重试！")
                 break
                 
-            print("\n🚀 错误数大于 50，开始准备本轮重试任务...")
+            if current_errors <= 50:
+                retry_single_requests(client, failed_ids, summarizing_requests_path, summarizing_response_path)
+                break  
+                
+            print("\n🚀 错误数大于 50，开始准备本轮批量重试任务 (Batch API)...")
             needs_retry = generate_retry_requests(summarizing_response_path, summarizing_requests_path, retry_requests_path)
             
             if needs_retry:
                 retry_display_name = f"{KOL}-{start}-{end}-retry-{int(time.time())}"
-                # 阻塞执行：提交并监控任务，结果会下载到 retry_response_path
                 submitTasks(client, "models/gemini-3-flash-preview", retry_display_name, retry_requests_path, retry_response_path)
                 
-                # 3. 任务完成后：合并新数据，清除老 error，并清空 retry_response
-                print("🔄 任务完成，正在清洗老错误并合并最新重试结果...")
+                print("🔄 批量任务完成，正在清洗老错误并合并最新重试结果...")
                 merge_retry_and_clean(summarizing_response_path, retry_response_path)
-                
-                # 稍微休眠，给文件系统缓冲时间
                 time.sleep(2)
             else:
                 break
+
+    # --- 新增：独立进入单条请求的强制重试模式 ---
+    if mode == 4:
+        print("\n🔨 强制单条重试模式 (Mode 4) 启动...")
+        failed_ids = get_failed_ids(summarizing_response_path)
+        current_errors = len(failed_ids)
+        print(f"📊 当前 [summary_response] 中的错误总数: {current_errors}")
+        
+        if current_errors == 0:
+            print("✅ 没有错误记录，无需重试！")
+        else:
+            retry_single_requests(client, failed_ids, summarizing_requests_path, summarizing_response_path)
 
 if __name__ == '__main__':
     KOL = sys.argv[1]
