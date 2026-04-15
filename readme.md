@@ -1,117 +1,130 @@
-# Dify 安装和配置指南
 
-## 1. 安装 Dify
+# Dify Installation & Configuration Guide
 
-```shell
+## 1. Install Dify
+
+```bash
 git clone https://github.com/langgenius/dify.git
-````
+```
 
-## 2. 配置 `.env` 文件
+---
 
-```shell
-cd dify
-cd docker
+## 2. Configure Environment Variables
+
+```bash
+cd dify/docker
 cp .env.example .env
 ```
 
-修改 `.env` 文件中的以下配置：
+Update the following fields in `.env`:
 
-* `SERVER_WORKER_AMOUNT = # number of CPU cores * 2 + 1`
-* `SERVER_WORKER_CLASS = sync`
-* `CELERY_WORKER_CLASS = sync`
+* `SERVER_WORKER_AMOUNT = (CPU cores * 2 + 1)`
 
-## 3. 启动 Docker
+---
 
-```shell
+## 3. Start Services
+
+```bash
 docker compose up -d
 ```
 
-## 4. 注册管理员账号
+---
 
-打开 [http://localhost/install](http://localhost/install) 注册管理员账号。
+## 4. Create Admin Account
 
-## 5. 配置 Gemini 密钥
+Open: [http://localhost/install](http://localhost/install)
+Register an administrator account.
 
-1. 进入 `账户 - 设置 - 模型供应商`。
-2. 选择 `Gemini`，并绑定 Gemini API 密钥。
+---
 
-安装好对应的模型插件。
+## 5. Configure Gemini API
 
-## 6. 导入 DSL 文件
+1. Navigate to **Account → Settings → Model Providers**
+2. Select **Gemini**
+3. Add your Gemini API key
+4. Install the required model plugins
 
-* **X filtering** - 过滤推文
-* **X Summarizer** - 提取推文
+---
 
-## 7. 完成项目导入后，依次执行以下流程：
+## 6. Import DSL Workflows
 
-### 1. 编排 - 发布
+* **X Filtering** — tweet filtering
+* **X Summarizer** — tweet summarization
 
-* 如果发布不成功，请解决所有对应的问题。
+---
 
-### 2. 访问 API - 创建 API 密钥
+## 7. Final Setup
 
-* 进入 `API密钥` 页面，创建新的密钥。
+### 7.1 Publish Workflow
 
-## 8. 修改 `pipeline.py`
+* Go to **Orchestration → Publish**
+* Resolve any validation errors if publishing fails
 
-* 替换变量为（第 6 步）中创建的密钥：
+### 7.2 Create API Keys
 
-  * `API_filter`
-  * `API_summarizer`
+* Navigate to **API Keys**
+* Generate keys for both workflows
 
-运行命令：
+---
 
-```shell
+## 8. Update `pipeline.py`
+
+Replace the following variables with your API keys:
+
+* `API_filter`
+* `API_summarizer`
+
+Run:
+
+```bash
 python pipeline.py -i daily/original_bespokeinvest.jsonl -o results/bespokeinvest/2.jsonl -s 201 -e 400
 ```
 
-其中：
+**Arguments:**
 
-* `-i` 文件输入路径
-* `-o` 文件输出路径
-* `-s` 起始索引
-* `-e` 终止索引
+* `-i` Input file path
+* `-o` Output file path
+* `-s` Start index
+* `-e` End index
 
-你可以启动多个终端进行并发访问。
+You can run multiple instances in parallel.
 
+---
 
-
-
-# BatchSubmit使用指南
-
+# BatchSubmit Usage Guide
 
 ## 📦 Batch Tweet Processing Pipeline
 
-一个基于 **Gemini Batch API** 的数据处理流水线，用于对 Twitter（X）数据进行：
+A pipeline powered by **Gemini Batch API** for processing Twitter (X) data:
 
-* ✅ 内容过滤（Filtering）
-* ✅ 分块总结（Summarizing）
-* 🔁 自动错误重试（Retry）
+* ✅ Filtering
+* ✅ Chunked summarization
+* 🔁 Automatic retry
 
 ---
 
-## 🚀 功能概览
+## 🚀 Overview
 
-```text
-原始数据 → Filtering → Summarizing → Retry修复 → 最终结果
+```
+Raw Data → Filtering → Summarizing → Retry → Final Output
 ```
 
-### 核心能力：
+### Key Features
 
-* 批量请求（Batch API）
-* 图片 + 文本多模态处理
-* 自动错误检测与重试
-* 大规模数据处理支持
+* Batch processing (Batch API)
+* Multimodal support (text + images)
+* Automatic error detection and retry
+* Scalable for large datasets
 
 ---
 
-# 📂 项目结构
+## 📂 Project Structure
 
-```text
+```
 .
-├── batchSubmit.py              # 主程序
+├── batchSubmit.py
 ├── daily/
-│   └── original_xxx.jsonl      # 原始数据
+│   └── original_xxx.jsonl
 ├── requests/
 │   └── xxx/
 │       ├── filter_request.jsonl
@@ -124,27 +137,27 @@ python pipeline.py -i daily/original_bespokeinvest.jsonl -o results/bespokeinves
 
 ---
 
-## ⚙️ 环境准备
+## ⚙️ Setup
 
-### 1️⃣ 安装依赖
+### 1. Install Dependencies
 
 ```bash
 pip install google-genai pydantic
 ```
 
-### 2️⃣ 配置 API Key
+### 2. Configure API Key
 
-在 `batchSubmit.py` 中填写：
+In `batchSubmit.py`:
 
 ```python
-GEMINI_API_KEY = "你的API_KEY"
+GEMINI_API_KEY = "YOUR_API_KEY"
 ```
 
 ---
 
-## 📥 输入数据格式
+## 📥 Input Format
 
-每行 JSON（jsonl）示例：
+Each line is a JSON object:
 
 ```json
 {
@@ -162,14 +175,14 @@ GEMINI_API_KEY = "你的API_KEY"
 
 ---
 
-## 🧠 工作流程
+## 🧠 Workflow
 
-### 1️⃣ Filtering（筛选）
+### 1. Filtering
 
-* 输入：tweets
-* 输出：有效 tweet 标记
+* Input: tweets
+* Output: valid tweet flags
 
-👉 文件：
+Output file:
 
 ```
 filtering_response.jsonl
@@ -177,12 +190,12 @@ filtering_response.jsonl
 
 ---
 
-### 2️⃣ Summarizing（总结）
+### 2. Summarizing
 
-* 仅处理有效 tweet
-* 自动分块（最多 5 张图片 / chunk）
+* Processes only valid tweets
+* Automatically chunks data (max 5 images per chunk)
 
-👉 文件：
+Output file:
 
 ```
 summarizing_response.jsonl
@@ -190,20 +203,18 @@ summarizing_response.jsonl
 
 ---
 
-### 3️⃣ Retry（错误修复）
+### 3. Retry Mechanism
 
-自动执行：
-
-| 错误数  | 处理方式 |
-| ---- | ---- |
-| ≤ 50 | 单条重试 |
-| > 50 | 批量重试 |
+| Error Count | Strategy     |
+| ----------- | ------------ |
+| ≤ 50        | Single retry |
+| > 50        | Batch retry  |
 
 ---
 
-## ▶️ 使用方法
+## ▶️ Usage
 
-### 命令格式
+### Command
 
 ```bash
 python batchSubmit.py <KOL> <start> <end> <mode> <download>
@@ -211,49 +222,45 @@ python batchSubmit.py <KOL> <start> <end> <mode> <download>
 
 ---
 
-### 参数说明
+### Parameters
 
-| 参数         | 说明         |
-| ---------- | ---------- |
-| `KOL`      | 数据标识（用户名等） |
-| `start`    | 起始行        |
-| `end`      | 结束行        |
-| `mode`     | 执行模式       |
-| `download` | 是否手动选择任务   |
-
----
-
-### 🧩 mode 模式
-
-| mode | 功能                |
-| ---- | ----------------- |
-| 0    | 🚀 全流程执行（推荐）      |
-| 1    | 👀 监控 filtering   |
-| 2    | 👀 监控 summarizing |
-| 3    | 🔁 自动 retry       |
-| 4    | 🔨 强制单条 retry     |
+| Parameter  | Description                     |
+| ---------- | ------------------------------- |
+| `KOL`      | Data identifier (e.g. username) |
+| `start`    | Start index                     |
+| `end`      | End index                       |
+| `mode`     | Execution mode                  |
+| `download` | Manual task selection flag      |
 
 ---
 
-### 🎯 示例
+### Modes
 
-#### ✅ 全流程运行
+| Mode | Description                    |
+| ---- | ------------------------------ |
+| 0    | 🚀 Full pipeline (recommended) |
+| 1    | 👀 Monitor filtering           |
+| 2    | 👀 Monitor summarizing         |
+| 3    | 🔁 Auto retry                  |
+| 4    | 🔨 Force single retry          |
+
+---
+
+### Examples
+
+**Full run:**
 
 ```bash
 python batchSubmit.py musk 0 1000 0 0
 ```
 
----
-
-#### ✅ 仅监控任务
+**Monitor only:**
 
 ```bash
 python batchSubmit.py musk 0 1000 1 1
 ```
 
----
-
-#### ✅ 强制修复错误
+**Force retry:**
 
 ```bash
 python batchSubmit.py musk 0 1000 4 0
@@ -261,43 +268,30 @@ python batchSubmit.py musk 0 1000 4 0
 
 ---
 
-## ⚠️ 注意事项
+## ⚠️ Notes
 
-### 1. 输入文件必须存在
+1. Input file must exist:
 
 ```
 daily/original_<KOL>.jsonl
 ```
 
----
-
-### 2. Filtering 与 Summarizing 必须匹配
-
-否则会产生：
+2. Filtering and summarizing results must align, otherwise errors may occur:
 
 * `dimension_mismatch`
 * `unmatched_validation_data`
 
----
+3. Image limit:
 
-### 3. 图片限制
+* Max 5 images per request
 
-* 每个请求最多 5 张图片
+4. Batch API latency:
 
----
+* Jobs may take several minutes
 
-### 4. Batch API 有延迟
-
-* 任务执行可能需要几分钟
-
----
-
-### 5. 错误日志位置
+5. Error logs:
 
 ```
 filtering_error.jsonl
 ```
-
-
-
 
